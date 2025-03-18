@@ -1,0 +1,144 @@
+alertmanager:
+    enabled: true
+    ingress:
+        # Enable to use external url for Alertmanager.
+        enabled: false
+        pathType: Prefix
+        annotations:
+            kubernetes.io/ingress.class : nginx
+            cert-manager.io/cluster-issuer: default-issuer
+            nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        hosts:
+          - alertmanager.iam.example.com
+        tls:
+          - secretName: sslcert
+            hosts:
+              - alertmanager.iam.example.com
+
+prometheus:
+    prometheusSpec:
+        retention: 30d
+        retentionSize: 40GB
+        serviceMonitorSelectorNilUsesHelmValues: false
+        ruleSelectorNilUsesHelmValues: false
+        enableAdminAPI: false
+        storageSpec:
+          volumeClaimTemplate:
+            metadata:
+              name: data
+            spec:
+              storageClassName: efs-sc
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 50Gi
+    ingress:
+        # Enable to use external url for Prometheus.
+        enabled: false
+        pathType: Prefix
+        annotations:
+            kubernetes.io/ingress.class: nginx
+            cert-manager.io/cluster-issuer: default-issuer
+            nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        hosts:
+          - prometheus.iam.example.com
+        tls:
+          - secretName: sslcert
+            hosts:
+              - prometheus.iam.example.com
+
+grafana:
+    enabled: true
+    # Add By Aduneo : Modify Grafana to Add loki and use SSO.
+    grafana.ini:
+        #log:
+        #    level: debug
+        server:
+            root_url: https://monitoring-qa.iam.al-enterprise.com
+        # use for external  authentification
+        users:
+            #auto_assign_org_role: "Admin"
+            auto_assign_org_role: "Editor"
+        auth.generic_oauth:
+            enabled: true
+
+            #Add ALE - S. Isenbart - Client ID/Secret taken from local secret file
+            client_id: $__file{/etc/secrets/auth_generic_oauth/client_id}
+            client_secret: $__file{/etc/secrets/auth_generic_oauth/client_secret}
+            scopes: openid profile email
+            use_refresh_token: true
+
+            login_attribute_path: "@.sub"
+            name_attribute_path: "join(' ',to_array([@.family_name, @.given_name]))"
+            email_attribute_path: "@.email"
+            #skip_org_role_sync: true
+            #role_attribute_path: "Viewer"
+            #role_attribute_strict: true
+            allow_sign_up: true
+
+            auth_url: https://sso.al-enterprise.com/am/oauth2/realms/internal/authorize
+            token_url: https://sso.al-enterprise.com/am/oauth2/realms/internal/access_token
+            api_url: https://sso.al-enterprise.com/am/oauth2/realms/internal/userinfo
+    admin:
+        existingSecret: "grafana-env-secret"
+        userKey: GRAFANA_ADMIN_ACCOUNT
+        passwordKey: GRAFANA_ADMIN_PASSWORD
+    # Add ALE - S. Isenbart - store secrets locally in file
+    extraSecretMounts:
+      - name: grafana-oauth-secrets-mount
+        secretName: grafana-oauth-secrets
+        defaultMode: 0440
+        mountPath: /etc/secrets/auth_generic_oauth
+        readOnly: true
+    datasources:
+      datasources.yaml:
+        apiVersion: 1
+        datasources:
+         - name: loki
+           type: loki
+           url: http://loki-gateway
+           access: proxy
+    # Enable to use external url for Grafana.
+    ingress:
+        enabled: true
+        pathType: Prefix
+        annotations:
+            kubernetes.io/ingress.class : nginx
+            cert-manager.io/cluster-issuer: default-issuer
+            nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        # Change the value of hosts to add your proper DNS
+        hosts:
+          - monitoring-qa.iam.al-enterprise.com
+        tls:
+          - secretName: sslcert
+            hosts:
+              - monitoring-qa.iam.al-enterprise.com
+
+prometheusOperator:
+    admissionWebhooks:
+      certManager:
+        enabled: true
+        issuerRef:
+          name: "selfsigned-issuer"
+          kind: "Issuer"
+
+defaultRules:
+    rules:
+        etcd: false
+        kubeApiserver: false
+        kubeScheduler: false
+        kubernetesSystem: false
+
+kubeScheduler:
+    enabled: false
+coreDns:
+    enabled: false
+kubeEtcd:
+    enabled: false
+kubeControllerManager:
+    enabled: false
+kubeProxy:
+    enabled: false
+kube-state-metrics:
+    podSecurityPolicy:
+        enabled: false
