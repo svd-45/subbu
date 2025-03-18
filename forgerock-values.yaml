@@ -1,0 +1,40 @@
+am:
+  component: am
+  enabled: true
+  path: /am/json/metrics/prometheus
+  port: am
+  labelSelectorComponent: am
+  secretUser: prometheus
+  secretPassword: prometheus
+
+ds:
+  component: directory
+  enabled: true
+  path: /metrics/prometheus
+  port: http
+  labelSelectorComponent: directory
+  labelSelectorName: ds
+  secretUser: monitor
+  secretPassword: password
+
+idm:
+  component: idm
+  enabled: true
+  path: /openidm/metrics/prometheus
+  port: idm
+  labelSelectorComponent: idm
+  secretUser: prometheus
+  secretPassword: prometheus
+
+ig:
+  component: ig
+  enabled: true
+  path: /openig/metrics/prometheus
+  port: ig
+  labelSelectorComponent: ig
+  secretUser: metric
+  secretPassword: password
+
+additionalRulesLabels:
+  prometheus: prometheus-operator
+  role: alert-rules
